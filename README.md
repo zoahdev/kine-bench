@@ -39,6 +39,19 @@ python -m kinebench run --ckpt ../kine-jepa/experiments/KINE-EXP-001/run-*/ckpt-
 3. **冻结评测**：不改被评模型一个字节，结果只取决于检查点本身。
 4. **公开实现**：指标怎么算的全在 `kinebench/metrics.py`，欢迎挑错。
 
+## 首批结果
+
+KINE-EXP-001 ckpt-step5000（单张 RTX 5070 Ti 上训练 5000 步，32 条真实片段评测）：
+
+| 任务 | 分数 | 基线 |
+|---|---|---|
+| KINE-FUT-1 | **0.783** | 0.181（随机） |
+| KINE-MOT-1 | **0.203** | 0.0 |
+| KINE-TEMP-1 | 0.368 | 0.5 |
+
+数据文件：`results/KINE-EXP-001-ckpt-step5000.json`。
+如实说明：TEMP-1 在该检查点低于随机基线——时序理解尚未建立，原样发布、持续跟踪；训练完成后用最终检查点复测。
+
 ## 路线图
 
 - v0.2：物理事件探针（碰撞/掉落前后的表征变化），依赖 kine-datapipe 的事件挖掘输出
