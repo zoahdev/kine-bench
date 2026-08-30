@@ -2,6 +2,8 @@
 
 **KINE-Bench** 是勘境（KINEWORLD）发布的消费级世界模型评测框架：在单张显卡（甚至 CPU）上，用可复现的量化任务回答一个问题——**这个世界模型到底学没学到物理规律？**
 
+当前被评模型的正式名称为 **KineOne-WM-Latent 0.1**；`KINE-EXP-001` 是历史实验编号，`KINE-JEPA` 是兼容旧代码与检查点的架构代号。KINE-Bench 是勘境自建基准，不是 WorldArena 或其他第三方官方榜单。
+
 > 提案全文：[kineworld.com/kine-bench.html](https://kineworld.com/kine-bench.html)。当前实现为 v0.3（v0.1 三项探针 + v0.2 物理事件探针 + v0.3 具身仿真探针），欢迎提 issue 与 PR。
 
 ## 任务
