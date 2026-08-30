@@ -2,7 +2,7 @@
 
 **KINE-Bench** 是勘境（KINEWORLD）发布的消费级世界模型评测框架：在单张显卡（甚至 CPU）上，用可复现的量化任务回答一个问题——**这个世界模型到底学没学到物理规律？**
 
-> 提案全文：[kineworld.com/kine-bench.html](https://kineworld.com/kine-bench.html)。当前实现为 v0.2（v0.1 三项探针 + v0.2 物理事件探针），欢迎提 issue 与 PR。
+> 提案全文：[kineworld.com/kine-bench.html](https://kineworld.com/kine-bench.html)。当前实现为 v0.3（v0.1 三项探针 + v0.2 物理事件探针 + v0.3 具身仿真探针），欢迎提 issue 与 PR。
 
 ## 任务
 
@@ -12,9 +12,11 @@
 | KINE-MOT-1 | 表征是否编码运动强度 | 特征→运动能量的 Pearson r | 0.0 |
 | KINE-FUT-1 | 预测器"想象"出的未来与真实未来有多像 | 掩码未来 token 的余弦相似度 | ≈0（随机 token 对） |
 | KINE-EVT-1 | 物理事件（碰撞/掉落/倾倒）前后的表征位移是否大于任意窗口 | 事件窗口位移对对照窗口的 AUC | 0.5 |
+| KINE-EMB-1 | 在物理引擎渲染的分布外动力学上，"想象"的未来是否优于打乱 token | 3 个 MuJoCo 场景想象余弦均值 | 目标 token 随机置换的余弦均值 |
 
-TEMP-1 / MOT-1 只训一个线性头，FUT-1 / EVT-1 完全不训练——所有探针都在**冻结模型**上运行。
+TEMP-1 / MOT-1 只训一个线性头，FUT-1 / EVT-1 / EMB-1 完全不训练——所有探针都在**冻结模型**上运行。
 KINE-EVT-1 依赖 kine-datapipe 的 `events` 命令产出的 `events.json` 与原始视频（`data/raw`），CLI 会自动发现；另附**像素基线**（帧差分 AUC），回答"模型看到的比像素差分多不多"。
+KINE-EMB-1 用 MuJoCo 渲染三个物理场景（落球反弹、单摆、箱体倾倒），掩码时间后半段，用 KINE-FUT-1 同款协议评测预测器的"物理想象力"；需 `pip install mujoco`，未安装时自动跳过。
 
 ## 安装与运行
 
@@ -50,15 +52,16 @@ KINE-EXP-001 ckpt-step5000（单张 RTX 5070 Ti 上训练 5000 步，全部 98 �
 | KINE-FUT-1 | **0.823** | 0.127（随机） |
 | KINE-MOT-1 | **0.660** | 0.0 |
 | KINE-EVT-1 | 0.539 | 0.5（像素帧差基线 0.515） |
+| KINE-EMB-1 | 0.681 | 0.683（token 置换） |
 | KINE-TEMP-1 | 0.500 | 0.5 |
 
-数据文件：`results/KINE-EXP-001-ckpt-step5000-v02.json`（另附早期 32 条子集探测 `results/KINE-EXP-001-ckpt-step5000.json` 与 98 条 v0.1 复测 `results/KINE-EXP-001-ckpt-step5000-full.json`）。
-如实说明：TEMP-1 恰等于随机基线、EVT-1 仅略高于基线——时序与事件结构理解在该检查点尚未建立，原样发布、持续跟踪；训练完成后用最终检查点复测。
+数据文件：`results/KINE-EXP-001-ckpt-step5000-v03.json`（另附早期 32 条子集探测 `results/KINE-EXP-001-ckpt-step5000.json`、98 条 v0.1 复测 `results/KINE-EXP-001-ckpt-step5000-full.json` 与 v0.2 四项合并 `results/KINE-EXP-001-ckpt-step5000-v02.json`）。
+如实说明：TEMP-1 恰等于随机基线、EVT-1 仅略高于基线、EMB-1 总体与置换基线打平（分场景：落球 +0.009、单摆 −0.064、倾倒 +0.049）——时序、事件与分布外物理想象在该检查点尚未建立，原样发布、持续跟踪；训练完成后用最终检查点复测。
 
 ## 路线图
 
 - ✅ v0.2：KINE-EVT-1 物理事件探针（已交付，复用 kine-datapipe 事件挖掘输出）
-- v0.3：KINE-EMB-1 具身任务（想象-推演评测）
+- ✅ v0.3：KINE-EMB-1 具身仿真探针（MuJoCo 三场景，已交付）
 - v0.4：跨检查点纵向曲线（每 5000 步复测并公开趋势）
 - 每个版本发布数字时同步公开检查点与 results.json
 

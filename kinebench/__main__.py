@@ -8,13 +8,14 @@ from pathlib import Path
 
 import torch
 
+from .emb import embodied_imagination
 from .events import event_shift
 from .load import ensure_jepa_path, load_model
 from .metrics import ALL_TASKS
 
 
 def build_parser():
-    ap = argparse.ArgumentParser(prog="kinebench", description="KINE-Bench v0.2 evaluation harness")
+    ap = argparse.ArgumentParser(prog="kinebench", description="KINE-Bench v0.3 evaluation harness")
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("run", help="run all tasks on a checkpoint")
     p.add_argument("--ckpt", type=str, default=None, help="KINE-JEPA checkpoint (.pt); omit for random init")
@@ -77,7 +78,7 @@ def main(argv=None):
 
     results = {
         "harness": "kinebench",
-        "version": "0.2.0",
+        "version": "0.3.0",
         "checkpoint": args.ckpt,
         "data": source,
         "num_clips": len(clips),
@@ -99,6 +100,13 @@ def main(argv=None):
         print(f"[bench] KINE-EVT-1: {r}")
     else:
         print("[bench] KINE-EVT-1 skipped (no raw videos + events.json found)")
+
+    r = embodied_imagination(model, device, num_frames=args.num_frames, img_size=args.img_size)
+    results["tasks"]["KINE-EMB-1"] = r
+    if r.get("error"):
+        print(f"[bench] KINE-EMB-1 skipped ({r['error']})")
+    else:
+        print(f"[bench] KINE-EMB-1: {r}")
 
     results["wall_s"] = round(time.time() - t0, 1)
 
