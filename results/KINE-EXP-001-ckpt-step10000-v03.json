@@ -1,0 +1,51 @@
+{
+  "harness": "kinebench",
+  "version": "0.3.0",
+  "checkpoint": "../kine-exp001/experiments/KINE-EXP-001/run-20260830-035639/ckpt-step10000.pt",
+  "data": "../kine-datapipe/data/clips (98/98 clips)",
+  "num_clips": 98,
+  "device": "cuda",
+  "tasks": {
+    "KINE-TEMP-1": {
+      "accuracy": 0.431,
+      "baseline": 0.5
+    },
+    "KINE-MOT-1": {
+      "pearson_r": 0.5544,
+      "baseline": 0.0
+    },
+    "KINE-FUT-1": {
+      "cosine": 0.8417,
+      "random_baseline": 0.0738
+    },
+    "KINE-EVT-1": {
+      "auc": 0.5152,
+      "baseline": 0.5,
+      "pixel_baseline_auc": 0.5152,
+      "mean_event_shift": 0.4228,
+      "mean_control_shift": 0.3944,
+      "n_events_used": 24,
+      "n_controls": 48
+    },
+    "KINE-EMB-1": {
+      "cosine": 0.5014,
+      "random_baseline": 0.5694,
+      "n_scenarios": 3,
+      "per_scenario": {
+        "ball_fall": {
+          "cosine": 0.2262,
+          "random_baseline": 0.3715
+        },
+        "pendulum": {
+          "cosine": 0.9129,
+          "random_baseline": 0.993
+        },
+        "box_topple": {
+          "cosine": 0.3653,
+          "random_baseline": 0.3436
+        }
+      }
+    }
+  },
+  "wall_s": 124.7
+}
