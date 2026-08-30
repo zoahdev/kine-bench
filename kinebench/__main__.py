@@ -8,23 +8,38 @@ from pathlib import Path
 
 import torch
 
+from .events import event_shift
 from .load import ensure_jepa_path, load_model
 from .metrics import ALL_TASKS
 
 
 def build_parser():
-    ap = argparse.ArgumentParser(prog="kinebench", description="KINE-Bench v0.1 evaluation harness")
+    ap = argparse.ArgumentParser(prog="kinebench", description="KINE-Bench v0.2 evaluation harness")
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("run", help="run all tasks on a checkpoint")
     p.add_argument("--ckpt", type=str, default=None, help="KINE-JEPA checkpoint (.pt); omit for random init")
-    p.add_argument("--data-dir", type=str, default=None, help="kine-datapipe clips directory")
+    p.add_argument("--data-dir", type=str, default=None, help="kine-datapipe clips directory (or its parent data/)")
     p.add_argument("--smoke", action="store_true", help="synthetic clips + random-init model")
     p.add_argument("--max-clips", type=int, default=48)
     p.add_argument("--num-frames", type=int, default=16)
     p.add_argument("--img-size", type=int, default=224)
     p.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
+    p.add_argument("--raw-dir", type=str, default=None, help="raw videos dir for KINE-EVT-1 (default: auto)")
+    p.add_argument("--events-json", type=str, default=None, help="kine-datapipe events.json (default: auto)")
     p.add_argument("--out", type=str, default=None, help="write results JSON here")
     return ap
+
+
+def resolve_event_inputs(args):
+    """Locate raw videos + events.json for KINE-EVT-1, or None if unavailable."""
+    if args.raw_dir and args.events_json:
+        return Path(args.raw_dir), Path(args.events_json)
+    if args.data_dir:
+        base = Path(args.data_dir)
+        for c in (base, base.parent):
+            if (c / "events.json").is_file() and (c / "raw").is_dir():
+                return c / "raw", c / "events.json"
+    return None
 
 
 def load_clips(args):
@@ -62,7 +77,7 @@ def main(argv=None):
 
     results = {
         "harness": "kinebench",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "checkpoint": args.ckpt,
         "data": source,
         "num_clips": len(clips),
@@ -73,6 +88,18 @@ def main(argv=None):
         r = fn(model, clips, device)
         results["tasks"][name] = r
         print(f"[bench] {name}: {r}")
+
+    evt = resolve_event_inputs(args)
+    if evt is not None:
+        raw_dir, events_json = evt
+        print(f"[bench] KINE-EVT-1 inputs: {raw_dir} + {events_json.name}")
+        r = event_shift(model, raw_dir, events_json, device,
+                        num_frames=args.num_frames, img_size=args.img_size)
+        results["tasks"]["KINE-EVT-1"] = r
+        print(f"[bench] KINE-EVT-1: {r}")
+    else:
+        print("[bench] KINE-EVT-1 skipped (no raw videos + events.json found)")
+
     results["wall_s"] = round(time.time() - t0, 1)
 
     if args.out:
@@ -83,7 +110,8 @@ def main(argv=None):
     print("|---|---|---|")
     for name, r in results["tasks"].items():
         vals = list(r.values())
-        print(f"| {name} | {vals[0]} | {vals[1]} |")
+        score = vals[0] if vals[0] is not None else "n/a"
+        print(f"| {name} | {score} | {vals[1]} |")
     return 0
 
 
