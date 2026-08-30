@@ -1,0 +1,23 @@
+{
+  "harness": "kinebench",
+  "version": "0.1.0",
+  "checkpoint": "../kine-exp001/experiments/KINE-EXP-001/run-20260830-035639/ckpt-step5000.pt",
+  "data": "../kine-datapipe/data/clips (98/98 clips)",
+  "num_clips": 98,
+  "device": "cuda",
+  "tasks": {
+    "KINE-TEMP-1": {
+      "accuracy": 0.5,
+      "baseline": 0.5
+    },
+    "KINE-MOT-1": {
+      "pearson_r": 0.6599,
+      "baseline": 0.0
+    },
+    "KINE-FUT-1": {
+      "cosine": 0.8227,
+      "random_baseline": 0.1272
+    }
+  },
+  "wall_s": 68.4
+}

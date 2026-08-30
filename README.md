@@ -41,16 +41,16 @@ python -m kinebench run --ckpt ../kine-jepa/experiments/KINE-EXP-001/run-*/ckpt-
 
 ## 首批结果
 
-KINE-EXP-001 ckpt-step5000（单张 RTX 5070 Ti 上训练 5000 步，32 条真实片段评测）：
+KINE-EXP-001 ckpt-step5000（单张 RTX 5070 Ti 上训练 5000 步，全部 98 条真实片段评测）：
 
 | 任务 | 分数 | 基线 |
 |---|---|---|
-| KINE-FUT-1 | **0.783** | 0.181（随机） |
-| KINE-MOT-1 | **0.203** | 0.0 |
-| KINE-TEMP-1 | 0.368 | 0.5 |
+| KINE-FUT-1 | **0.823** | 0.127（随机） |
+| KINE-MOT-1 | **0.660** | 0.0 |
+| KINE-TEMP-1 | 0.500 | 0.5 |
 
-数据文件：`results/KINE-EXP-001-ckpt-step5000.json`。
-如实说明：TEMP-1 在该检查点低于随机基线——时序理解尚未建立，原样发布、持续跟踪；训练完成后用最终检查点复测。
+数据文件：`results/KINE-EXP-001-ckpt-step5000-full.json`（另附 32 条子集的早期探测 `results/KINE-EXP-001-ckpt-step5000.json`）。
+如实说明：TEMP-1 在该检查点恰好等于随机基线——时序结构理解尚未建立，原样发布、持续跟踪；训练完成后用最终检查点复测。
 
 ## 路线图
 
