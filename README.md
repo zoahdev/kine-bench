@@ -69,6 +69,12 @@ KINE-EXP-001 ckpt-step5000（单张 RTX 5070 Ti 上训练 5000 步，全部 98 �
 
 观察（原样发布）：FUT-1 继续上升，且其随机基线由 0.127 降至 0.074（表征多样性增加），边际从 +0.696 扩大到 +0.768——预测能力在稳定增强。与此同时线性可读的运动/时序信息（MOT/TEMP）与事件敏感度（EVT）回落，TEMP-1 跌破基线（0.431 < 0.5），EMB-1 降至基线之下：表征正在向预测目标特化、牺牲部分线性探针可读性。这是 JEPA 类目标的已知权衡，我们如实跟踪；训练完成后补齐 15k/20k/25k。
 
+曲线图 `results/longitudinal.png` 由 `scripts/plot_longitudinal.py` 从上述 JSON 自动生成（实线为分数、虚线为基线），无人工修饰：
+
+```bash
+python scripts/plot_longitudinal.py   # 需 matplotlib
+```
+
 ## 路线图
 
 - ✅ v0.2：KINE-EVT-1 物理事件探针（已交付，复用 kine-datapipe 事件挖掘输出）
