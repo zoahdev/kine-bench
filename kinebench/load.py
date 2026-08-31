@@ -30,24 +30,38 @@ def ensure_jepa_path() -> None:
 
 
 def unwrap_state(state):
-    """Accept EXP-001 keys or EXP-002 CausalKineJEPA keys (base.* / head.*)."""
     if not state:
-        return state
+        return state, {}
+    head = {k[len("head."):]: v for k, v in state.items() if k.startswith("head.")}
     if any(k.startswith("base.") for k in state):
-        return {k[len("base."):]: v for k, v in state.items() if k.startswith("base.")}
+        base = {k[len("base."):]: v for k, v in state.items() if k.startswith("base.")}
+        return base, head
     if any(k.startswith("module.") for k in state):
-        return {k[len("module."):]: v for k, v in state.items()}
-    return state
+        return {k[len("module."):]: v for k, v in state.items()}, head
+    return state, head
+
+
+def attach_head(model, head_state):
+    if not head_state:
+        model.intervention_head = None
+        return model
+    from kineworld_jepa.causal import InterventionHead
+    dim = model.predictor.mask_token.shape[-1]
+    head = InterventionHead(dim)
+    head.load_state_dict(head_state, strict=False)
+    model.intervention_head = head
+    return model
 
 
 def load_model(ckpt_path, device, img_size=224, num_frames=16):
     ensure_jepa_path()
     from kineworld_jepa.jepa import KineJEPA
 
-    cfg, state = {}, None
+    cfg, state, head_state = {}, None, {}
     if ckpt_path is not None:
         ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
-        state = unwrap_state(ckpt.get("model", ckpt))
+        raw = ckpt.get("model", ckpt)
+        state, head_state = unwrap_state(raw)
         cfg = ckpt.get("config") or {}
     kw = dict(
         img_size=int(cfg.get("img_size", img_size)),
@@ -62,10 +76,9 @@ def load_model(ckpt_path, device, img_size=224, num_frames=16):
             kw["pred_depth"] = int(cfg.get("pred_depth", 2))
     model = KineJEPA(**kw)
     if state is not None:
-        missing, unexpected = model.load_state_dict(state, strict=False)
-        if unexpected:
-            print(f"[load] unexpected={len(unexpected)} (ok if EXP-002 head keys stripped)")
-        if missing:
-            print(f"[load] missing={list(missing)[:8]}")
+        model.load_state_dict(state, strict=False)
+    attach_head(model, head_state)
+    if getattr(model, "intervention_head", None) is not None:
+        model.intervention_head.to(device).eval()
     model.to(device).eval()
     return model
