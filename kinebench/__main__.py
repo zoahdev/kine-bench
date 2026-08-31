@@ -8,6 +8,7 @@ from pathlib import Path
 
 import torch
 
+from .cau import intervention_auc
 from .emb import embodied_imagination
 from .events import event_shift
 from .load import ensure_jepa_path, load_model
@@ -15,24 +16,23 @@ from .metrics import ALL_TASKS
 
 
 def build_parser():
-    ap = argparse.ArgumentParser(prog="kinebench", description="KINE-Bench v0.3 evaluation harness")
+    ap = argparse.ArgumentParser(prog="kinebench", description="KINE-Bench v0.4 evaluation harness")
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("run", help="run all tasks on a checkpoint")
-    p.add_argument("--ckpt", type=str, default=None, help="KINE-JEPA checkpoint (.pt); omit for random init")
-    p.add_argument("--data-dir", type=str, default=None, help="kine-datapipe clips directory (or its parent data/)")
-    p.add_argument("--smoke", action="store_true", help="synthetic clips + random-init model")
+    p.add_argument("--ckpt", type=str, default=None)
+    p.add_argument("--data-dir", type=str, default=None)
+    p.add_argument("--smoke", action="store_true")
     p.add_argument("--max-clips", type=int, default=48)
     p.add_argument("--num-frames", type=int, default=16)
     p.add_argument("--img-size", type=int, default=224)
     p.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
-    p.add_argument("--raw-dir", type=str, default=None, help="raw videos dir for KINE-EVT-1 (default: auto)")
-    p.add_argument("--events-json", type=str, default=None, help="kine-datapipe events.json (default: auto)")
-    p.add_argument("--out", type=str, default=None, help="write results JSON here")
+    p.add_argument("--raw-dir", type=str, default=None)
+    p.add_argument("--events-json", type=str, default=None)
+    p.add_argument("--out", type=str, default=None)
     return ap
 
 
 def resolve_event_inputs(args):
-    """Locate raw videos + events.json for KINE-EVT-1, or None if unavailable."""
     if args.raw_dir and args.events_json:
         return Path(args.raw_dir), Path(args.events_json)
     if args.data_dir:
@@ -78,7 +78,7 @@ def main(argv=None):
 
     results = {
         "harness": "kinebench",
-        "version": "0.3.0",
+        "version": "0.4.0",
         "checkpoint": args.ckpt,
         "data": source,
         "num_clips": len(clips),
@@ -108,6 +108,11 @@ def main(argv=None):
     else:
         print(f"[bench] KINE-EMB-1: {r}")
 
+    cau_size = 64 if args.smoke or args.img_size < 128 else min(args.img_size, 128)
+    r = intervention_auc(model, device, n_pairs=16, frames=min(args.num_frames, 16), size=cau_size)
+    results["tasks"]["KINE-CAU-1"] = r
+    print(f"[bench] KINE-CAU-1: {r}")
+
     results["wall_s"] = round(time.time() - t0, 1)
 
     if args.out:
@@ -119,7 +124,7 @@ def main(argv=None):
     for name, r in results["tasks"].items():
         vals = list(r.values())
         score = vals[0] if vals[0] is not None else "n/a"
-        print(f"| {name} | {score} | {vals[1]} |")
+        print(f"| {name} | {score} | {vals[1] if len(vals) > 1 else '' } |")
     return 0
 
 
