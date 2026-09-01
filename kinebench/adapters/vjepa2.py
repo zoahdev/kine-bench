@@ -41,9 +41,12 @@ import torch
 # installed (it is only needed when you actually build a V-JEPA 2 facade), and
 # so tests can monkeypatch `kinebench.adapters.vjepa2.AutoModel`.
 try:  # pragma: no cover - depends on environment
-    from transformers import AutoModel, AutoVideoProcessor
+    from transformers import AutoModel
 except ImportError:  # pragma: no cover
     AutoModel = None
+try:  # pragma: no cover - AutoVideoProcessor may be a lazy stub that raises on access
+    from transformers import AutoVideoProcessor
+except Exception:  # pragma: no cover
     AutoVideoProcessor = None
 
 from .base import AdapterInfo, WorldModelAdapter, as_uint8_numpy
@@ -215,13 +218,18 @@ class VJEPA2Adapter(WorldModelAdapter):
         )
 
     def build(self, device: str = "cpu") -> Any:
-        if AutoModel is None or AutoVideoProcessor is None:
+        if AutoModel is None:
             raise RuntimeError(
                 "transformers is required for the V-JEPA 2 adapter: pip install transformers"
             )
         if self.local_dir is not None:
             model = _load_offline(self.local_dir, device)
-            processor = AutoVideoProcessor.from_pretrained(self.local_dir, local_files_only=True)
+            processor = None
+            if AutoVideoProcessor is not None:
+                try:
+                    processor = AutoVideoProcessor.from_pretrained(self.local_dir, local_files_only=True)
+                except Exception:
+                    processor = None
             cfg = model.config
         else:
             model = AutoModel.from_pretrained(self.repo).to(device).eval()
