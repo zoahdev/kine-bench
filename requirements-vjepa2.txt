@@ -1,0 +1,5 @@
+# 仅当要评测外部世界模型（如 Meta V-JEPA 2）时才需要。
+# 基础评测（KineOne-WM + 合成数据）只需 requirements.txt 里的 torch。
+transformers>=4.45
+safetensors>=0.4
+huggingface_hub>=0.24   # 在线拉取权重；离线可用 KINE_VJEPA2_LOCAL 指向本地目录

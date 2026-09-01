@@ -1,4 +1,4 @@
-"""KINE-Bench CLI: python -m kinebench run [--ckpt P] [--data-dir D] [--smoke]"""
+"""KINE-Bench CLI: python -m kinebench run [--model M] [--ckpt P] [--data-dir D] [--smoke]"""
 
 import argparse
 import json
@@ -8,27 +8,38 @@ from pathlib import Path
 
 import torch
 
+from .adapters import PROBE_CAPABILITY, build_adapter, describe_all, list_adapters
+from .adapters.base import OPTIONAL_PARTS
 from .cau import intervention_auc
 from .emb import embodied_imagination
 from .events import event_shift
-from .load import ensure_jepa_path, load_model
 from .metrics import ALL_TASKS
+from .synth import synthetic_clips
+
+VERSION = "0.5.0"
 
 
 def build_parser():
-    ap = argparse.ArgumentParser(prog="kinebench", description="KINE-Bench v0.4 evaluation harness")
+    ap = argparse.ArgumentParser(prog="kinebench", description=f"KINE-Bench v{VERSION} evaluation harness")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    p = sub.add_parser("run", help="run all tasks on a checkpoint")
-    p.add_argument("--ckpt", type=str, default=None)
+
+    p = sub.add_parser("run", help="run all tasks on a model")
+    p.add_argument("--model", type=str, default="kineone-wm",
+                   help="adapter alias (see --list-models) or kineone-wm:<ckpt>")
+    p.add_argument("--ckpt", type=str, default=None,
+                   help="checkpoint path for the kineone-wm adapter")
     p.add_argument("--data-dir", type=str, default=None)
     p.add_argument("--smoke", action="store_true")
     p.add_argument("--max-clips", type=int, default=48)
     p.add_argument("--num-frames", type=int, default=16)
-    p.add_argument("--img-size", type=int, default=224)
+    p.add_argument("--img-size", type=int, default=None)
     p.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
     p.add_argument("--raw-dir", type=str, default=None)
     p.add_argument("--events-json", type=str, default=None)
+    p.add_argument("--batch-size", type=int, default=2)
     p.add_argument("--out", type=str, default=None)
+
+    sub.add_parser("models", help="list benchmarkable models and their capabilities")
     return ap
 
 
@@ -44,22 +55,42 @@ def resolve_event_inputs(args):
 
 
 def load_clips(args):
-    ensure_jepa_path()
     if args.smoke or not args.data_dir:
-        from kineworld_jepa.dataset import SyntheticVideoDataset
-        ds = SyntheticVideoDataset(num_frames=args.num_frames, size=args.img_size)
-        n = min(len(ds), args.max_clips)
-        clips = [ds[i] for i in range(n)]
+        n = args.max_clips if not args.smoke else min(8, args.max_clips)
+        clips = synthetic_clips(n, num_frames=args.num_frames, size=args.img_size or 64, seed=0)
         return clips, f"synthetic({n})"
+    from .load import ensure_jepa_path
+
+    ensure_jepa_path()
     from kineworld_jepa.dataset import VideoClipDataset
-    ds = VideoClipDataset(args.data_dir, num_frames=args.num_frames, size=args.img_size)
+
+    ds = VideoClipDataset(args.data_dir, num_frames=args.num_frames, size=args.img_size or 224)
     n = min(len(ds), args.max_clips)
     clips = [ds[i] for i in range(n)]
     return clips, f"{args.data_dir} ({n}/{len(ds)} clips)"
 
 
+def record(results, adapter, name, payload):
+    """Store a probe result, annotating optional parts the model cannot serve."""
+    if payload is None:
+        return
+    if isinstance(payload, dict):
+        payload = dict(payload)
+        payload.setdefault("status", "ok")
+        missing = OPTIONAL_PARTS.get(name)
+        if missing and missing not in adapter.capabilities:
+            payload["degraded"] = (
+                f"{name} '{missing}' branch unavailable: auc_do not measured"
+            )
+    results["tasks"][name] = payload
+
+
 def main(argv=None):
     args = build_parser().parse_args(argv)
+
+    if args.cmd == "models":
+        print(json.dumps(describe_all(), indent=2, ensure_ascii=False))
+        return 0
     if args.cmd != "run":
         return 1
 
@@ -70,61 +101,84 @@ def main(argv=None):
     else:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    img_size = args.img_size or (64 if (args.smoke or not args.data_dir) else 224)
+    args.img_size = img_size
+
     t0 = time.time()
     clips, source = load_clips(args)
+
+    adapter = build_adapter(
+        args.model, ckpt=args.ckpt, img_size=img_size,
+        num_frames=args.num_frames, batch_size=args.batch_size,
+    )
     print(f"[bench] data: {source} | device: {device}")
-    model = load_model(args.ckpt, device, img_size=args.img_size, num_frames=args.num_frames)
-    print(f"[bench] model: {args.ckpt or 'random-init'} | grid {tuple(model.grid)}")
+    print(f"[bench] model: {adapter.info.name} <{adapter.info.source}> "
+          f"license={adapter.info.license} caps={sorted(adapter.capabilities)}")
+    model = adapter.build(str(device))
 
     results = {
         "harness": "kinebench",
-        "version": "0.4.0",
+        "version": VERSION,
+        "model": adapter.describe(),
         "checkpoint": args.ckpt,
         "data": source,
         "num_clips": len(clips),
+        "num_frames": args.num_frames,
+        "img_size": img_size,
         "device": str(device),
         "tasks": {},
+        "not_applicable": {},
     }
+
+    grid = getattr(model, "grid", None)
+    if grid is not None:
+        print(f"[bench] grid {tuple(grid)}")
+
     for name, fn in ALL_TASKS:
+        if not adapter.supports(name):
+            results["not_applicable"][name] = adapter.unavailable(name)
+            print(f"[bench] {name}: n/a ({PROBE_CAPABILITY[name]} not exposed)")
+            continue
         r = fn(model, clips, device)
-        results["tasks"][name] = r
+        record(results, adapter, name, r)
         print(f"[bench] {name}: {r}")
 
     evt = resolve_event_inputs(args)
-    if evt is not None:
+    if "KINE-EVT-1" in results["not_applicable"]:
+        pass
+    elif evt is not None:
         raw_dir, events_json = evt
         print(f"[bench] KINE-EVT-1 inputs: {raw_dir} + {events_json.name}")
         r = event_shift(model, raw_dir, events_json, device,
-                        num_frames=args.num_frames, img_size=args.img_size)
-        results["tasks"]["KINE-EVT-1"] = r
+                        num_frames=args.num_frames, img_size=img_size)
+        record(results, adapter, "KINE-EVT-1", r)
         print(f"[bench] KINE-EVT-1: {r}")
     else:
         print("[bench] KINE-EVT-1 skipped (no raw videos + events.json found)")
 
-    r = embodied_imagination(model, device, num_frames=args.num_frames, img_size=args.img_size)
-    results["tasks"]["KINE-EMB-1"] = r
-    if r.get("error"):
-        print(f"[bench] KINE-EMB-1 skipped ({r['error']})")
+    if adapter.supports("KINE-EMB-1"):
+        r = embodied_imagination(model, device, num_frames=args.num_frames, img_size=img_size)
+        if r.get("error"):
+            print(f"[bench] KINE-EMB-1 skipped ({r['error']})")
+        else:
+            record(results, adapter, "KINE-EMB-1", r)
+            print(f"[bench] KINE-EMB-1: {r}")
     else:
-        print(f"[bench] KINE-EMB-1: {r}")
+        results["not_applicable"]["KINE-EMB-1"] = adapter.unavailable("KINE-EMB-1")
+        print("[bench] KINE-EMB-1: n/a (predict not exposed)")
 
-    cau_size = 64 if args.smoke or args.img_size < 128 else min(args.img_size, 128)
-    r = intervention_auc(model, device, n_pairs=16, frames=min(args.num_frames, 16), size=cau_size)
-    results["tasks"]["KINE-CAU-1"] = r
-    print(f"[bench] KINE-CAU-1: {r}")
+    if adapter.supports("KINE-CAU-1"):
+        cau_size = 64 if args.smoke or img_size < 128 else min(img_size, 128)
+        r = intervention_auc(model, device, n_pairs=16,
+                             frames=min(args.num_frames, 16), size=cau_size)
+        record(results, adapter, "KINE-CAU-1", r)
+        print(f"[bench] KINE-CAU-1: {r}")
 
     results["wall_s"] = round(time.time() - t0, 1)
 
     if args.out:
         Path(args.out).write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
         print(f"[bench] results -> {args.out}")
-
-    print("\n| task | score | baseline |")
-    print("|---|---|---|")
-    for name, r in results["tasks"].items():
-        vals = list(r.values())
-        score = vals[0] if vals[0] is not None else "n/a"
-        print(f"| {name} | {score} | {vals[1] if len(vals) > 1 else '' } |")
     return 0
 
 

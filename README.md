@@ -77,6 +77,20 @@ KINE-EXP-001 ckpt-step5000（单张 RTX 5070 Ti 上训练 5000 步，全部 98 �
 python scripts/plot_longitudinal.py   # 需 matplotlib
 ```
 
+## 对标外部世界模型（V-JEPA 2 适配器）
+
+KINE-Bench 不是只评自家模型。内置 `kinebench/adapters/vjepa2.py`，可直接把 **Meta V-JEPA 2**（当前最强的公开视频世界模型之一，MIT / Apache-2.0 权重，可商用）接入同一个冻结评测管线，得到与 KineOne-WM 完全可比的数字。
+
+```bash
+pip install -r requirements-vjepa2.txt   # transformers + safetensors
+python -m kinebench models                # 列出可评测模型与能力
+python -m kinebench run --model vjepa2-vitl-256 --smoke --device cpu
+```
+
+> V-JEPA 2 是 **encoder-only**：TEMP-1 / MOT-1 / EVT-1 照常出分，FUT-1 / EMB-1 / CAU-1 的 `predict`/`intervene` 分支报 `n/a`（不伪造分数）。其权重由 HuggingFace / Meta 直接提供，本仓库不重新分发。
+> 注意区分：**V-JEPA 2 = MIT 可商用**；**V-JEPA 1（facebookresearch/jepa）= CC-BY-NC，禁止商用**，仅作 clean-room 参考，不集成。
+> 开源 / 闭源边界见 [OPEN_SOURCE_BOUNDARY.md](./OPEN_SOURCE_BOUNDARY.md)。
+
 ## 路线图
 
 - ✅ v0.2：KINE-EVT-1 物理事件探针（已交付，复用 kine-datapipe 事件挖掘输出）
@@ -86,4 +100,4 @@ python scripts/plot_longitudinal.py   # 需 matplotlib
 
 ## 许可
 
-MIT
+代码 MIT。模型权重与数据见各适配器说明与 [OPEN_SOURCE_BOUNDARY.md](./OPEN_SOURCE_BOUNDARY.md)（明确哪些是公开资产、哪些是公司技术壁垒）。
