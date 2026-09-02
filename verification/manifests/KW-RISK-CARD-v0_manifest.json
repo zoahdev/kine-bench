@@ -1,0 +1,61 @@
+{
+  "artifact_id": "KW-RISK-CARD-0001",
+  "schema": "kineworld.failure-risk-card.v0",
+  "date": "2026-09-02",
+  "evidence_level": "E1_INTERNAL_REPRODUCTION",
+  "third_party_validated": false,
+  "source_experiment": "KW-EXP-0006",
+  "artifacts": {
+    "machine_card": {
+      "path": "results/KW_RISK_CARD_v0.json",
+      "sha256": "5dc47117db6ab0e8259b3de8471af9a71f35d9403d6881e2ea55f7a3853d5bce"
+    },
+    "human_card": {
+      "path": "docs/product/KINEWORLD_RISK_CARD_v0.md",
+      "sha256": "05c19db930e3fe963275d9555b4793a29e401c0350d772b00591416db0582599"
+    },
+    "builder": {
+      "path": "verification/scripts/build_risk_card_v0.py",
+      "sha256": "1eb35512bc42cbfa7f68dd207a0650504271cf59070da6a0f68fa765e1e7607f"
+    },
+    "offline_verifier": {
+      "path": "verification/scripts/verify_risk_card_v0.py",
+      "sha256": "9d118231f121a209133fa59e391f43d1bbe722e06dd43c829d2d819b983e482f"
+    },
+    "release_readme": {
+      "path": "verification/releases/KW-RISK-CARD-0001/README.md",
+      "sha256": "c96479887c91d189e7c0e5dd23ebace94285d1ca4a4a321aadb20175cef716d9"
+    },
+    "test": {
+      "path": "tests/test_risk_card_v0.py",
+      "sha256": "9481eb8fedee392cfaf0c9b893a14e5d52ac06aa494cfc2148b7f18aa624afd8"
+    },
+    "cluster_audit_result": {
+      "path": "results/kw_exp_0006_cluster_audit.json",
+      "sha256": "321aa175d54b0355a42e2b9f1bbee8a52671c90f2af550841beead858eabc4e6"
+    },
+    "cluster_audit_script": {
+      "path": "verification/scripts/kw_exp_0006_cluster_audit.py",
+      "sha256": "94c56b5f16eaed7a02458f05ba20c67854eb715fccf2f35cb9f0192e4090e2d0"
+    },
+    "cluster_audit_report": {
+      "path": "verification/artifacts/KW-EXP-0006_CLUSTER_AUDIT.md",
+      "sha256": "9aa9f53918f952921625cab1394b69798c9ccce993bf283748b9a63e7b890c99"
+    },
+    "attestation_template": {
+      "path": "verification/third_party/KW_RISK_CARD_ATTESTATION_TEMPLATE.md",
+      "sha256": "00750a03b1e39673bf4470d24cf3c29c796b55d1d472e451ae3fcb299336accf"
+    }
+  },
+  "verification": {
+    "test": "tests/test_risk_card_v0.py",
+    "attestation_template": "verification/third_party/KW_RISK_CARD_ATTESTATION_TEMPLATE.md"
+  },
+  "allowed_claim": "KineWorld published a hash-linked internal failure and risk analysis for a 96-episode JEPA-WM Push-T reproduction.",
+  "forbidden_claims": [
+    "third-party validated",
+    "state of the art",
+    "beats Baize or any competitor",
+    "causal physical-risk model"
+  ]
+}

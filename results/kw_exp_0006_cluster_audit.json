@@ -1,0 +1,37 @@
+{
+  "audit_id": "KW-EXP-0006-CLUSTER-AUDIT",
+  "status": "POST_HOC_ROBUSTNESS_CHECK",
+  "seed": 20260902,
+  "episode_is_resampling_unit": true,
+  "episodes": 96,
+  "points": 480,
+  "points_used_for_global_spike_threshold": 576,
+  "spike_definition": "error > 4 * global median error",
+  "spike_threshold": 0.11150915548205376,
+  "obj_disp_high_definition": "obj_disp >= global 75th percentile",
+  "obj_disp_cutoff": 7.707446942153592,
+  "observed": {
+    "high_spike_rate": 0.075,
+    "low_spike_rate": 0.013888888888888888,
+    "spike_rate_difference": 0.06111111111111111,
+    "relative_risk": 5.4,
+    "spearman_obj_disp_vs_log_error": 0.4197914625906111
+  },
+  "episode_profile_permutation": {
+    "n": 10000,
+    "p_one_sided_spike_rate_difference": 0.0031996800319968005,
+    "p_two_sided_spearman": 0.00009999000099990002
+  },
+  "episode_cluster_bootstrap_95pct": {
+    "n": 5000,
+    "spike_rate_difference": [
+      0.01666666666666667,
+      0.10725615230553187
+    ],
+    "spearman": [
+      0.29583349543184356,
+      0.5345720379128874
+    ]
+  },
+  "claim_boundary": "Robustness to episode clustering is not independent replication, does not establish causality, and does not validate deployment utility."
+}
